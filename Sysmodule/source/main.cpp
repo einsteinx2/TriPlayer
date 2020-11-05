@@ -1,7 +1,7 @@
 #include "nx/Audio.hpp"
 #include "nx/NX.hpp"
 #include "Service.hpp"
-#include "sources/MP3.hpp"
+#include "sources/MP3Source.hpp"
 #include <switch.h>
 
 // Heap size:
@@ -41,12 +41,12 @@ void __appInit(void) {
     NX::startServices();
 
     // Prepare audio libraries
-    MP3::initLib();
+    MP3Source::initLib();
 }
 
 void __appExit(void) {
     // Clean up audio libraries first
-    MP3::freeLib();
+    MP3Source::freeLib();
 
     // Finally stop services
     NX::stopServices();

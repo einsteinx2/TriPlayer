@@ -1,33 +1,36 @@
 #include <filesystem>
 #include "Log.hpp"
-#include "utils/MP3.hpp"
+#include "utils/FLAC.hpp"
 #include "utils/TagLibTags.hpp"
 
 // TagLib
-#include <mpegfile.h>
+#include <flacfile.h>
 
-namespace Utils::MP3 {
+namespace Utils::FLAC {
     // Searches and returns an appropriate image
     std::vector<unsigned char> getArt(std::string path) {
         std::vector<unsigned char> v;
 
         // Open the file to read the metadata
-        TagLib::MPEG::File audioFile(path.c_str(), false);
+        TagLib::FLAC::File audioFile(path.c_str(), false);
         if (audioFile.isValid()) {
-            // Read the ID3v2 tag
-            // NOTE: ID3v1 does not support album art
-            if (audioFile.hasID3v2Tag()) {
-                TagLib::ID3v2::Tag * tag = audioFile.ID3v2Tag();
-                if (tag) {
-                    TagLibTags::readArtFromID3v2Tag(tag, &v, path);
+            // NOTE: For some reason, reading the art from the FLAC tags doesn't work 
+            //       (maybe only works for OGG-FLAC?). So we need to get the picture
+            //       list directly from the file object instead of using the shared
+            //       Vorbis tag reading method (works fine for Ogg and Opus though)
+            if (audioFile.hasID3v2Tag() || audioFile.hasXiphComment()) {
+                TagLib::FLAC::Picture * picture = audioFile.pictureList().front();
+                if (picture) {
+                    TagLib::ByteVector byteVector = picture->data();
+                    v.assign(byteVector.begin(), byteVector.end());
                 } else {
-                    Log::writeError("[MP3] Failed to parse metadata for: " + path);
+                    Log::writeInfo("[FLAC] No suitable art found in: " + path);
                 }
             } else {
-                Log::writeWarning("[MP3] No ID3v2 tags were found in: " + path);
+                Log::writeWarning("[FLAC] No tags were found in: " + path);
             }
         } else {
-            Log::writeError("[MP3] Unable to open file: " + path);
+            Log::writeError("[FLAC] Unable to open file: " + path);
         }
 
         return v;
@@ -46,24 +49,32 @@ namespace Utils::MP3 {
         m.duration = 0;                                    // Initially 0 to indicate not set
 
         // Open the file to read the tags
-        TagLib::MPEG::File audioFile(path.c_str(), true, TagLib::AudioProperties::Average);
+        TagLib::FLAC::File audioFile(path.c_str(), true, TagLib::AudioProperties::Average);
         if (audioFile.isValid()) {
             // Read the audio properties to get the duration
-            TagLib::MPEG::Properties * audioProperties = audioFile.audioProperties();
+            TagLib::FLAC::Properties * audioProperties = audioFile.audioProperties();
             if (audioProperties) {
                 m.duration = (unsigned int)audioProperties->lengthInSeconds();
             } else {
-                Log::writeError("[MP3] Failed to read audio properties of file: " + path);
+                Log::writeError("[FLAC] Failed to read audio properties of file: " + path);
             }
 
             // Confirm the tags exist and read them
-            if (audioFile.hasID3v2Tag()) {
+            if (audioFile.hasXiphComment()) {
+                TagLib::Ogg::XiphComment * tag = audioFile.xiphComment();
+                if (tag) {
+                    TagLibTags::readInfoFromVorbisTag(tag, &m, path);
+                } else {
+                    m.ID = -2;
+                    Log::writeWarning("[FLAC] No tags were found in: " + path);
+                }
+            } else if (audioFile.hasID3v2Tag()) {
                 TagLib::ID3v2::Tag * tag = audioFile.ID3v2Tag();
                 if (tag) {
                     TagLibTags::readInfoFromID3v2Tag(tag, &m, path);
                 } else {
                     m.ID = -2;
-                    Log::writeWarning("[MP3] No tags were found in: " + path);
+                    Log::writeWarning("[FLAC] No tags were found in: " + path);
                 }
             } else if (audioFile.hasID3v1Tag()) {
                 // NOTE: ID3v1 does not have a disc number tag
@@ -72,14 +83,14 @@ namespace Utils::MP3 {
                     TagLibTags::readInfoFromID3v1Tag(tag, &m, path);
                 } else {
                     m.ID = -2;
-                    Log::writeWarning("[MP3] No tags were found in: " + path);
+                    Log::writeWarning("[FLAC] No tags were found in: " + path);
                 }
             } else {
                 m.ID = -2;
-                Log::writeWarning("[MP3] No ID3 metadata present in: " + path);
+                Log::writeWarning("[FLAC] No ID3 metadata present in: " + path);
             }
         } else {
-            Log::writeError("[MP3] Unable to open file: " + path);
+            Log::writeError("[FLAC] Unable to open file: " + path);
         }
 
         return m;

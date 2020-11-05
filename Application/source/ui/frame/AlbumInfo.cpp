@@ -3,7 +3,7 @@
 #include "ui/frame/AlbumInfo.hpp"
 #include "utils/FS.hpp"
 #include "utils/Image.hpp"
-#include "utils/MP3.hpp"
+#include "utils/TagLibTags.hpp"
 #include "utils/Utils.hpp"
 
 // Default path for file browser
@@ -388,7 +388,7 @@ namespace Frame {
 
     void AlbumInfo::updateImageFromID3(const std::string & path) {
         // Extract image
-        this->dlBuffer = Utils::MP3::getArtFromID3(path);
+        this->dlBuffer = Utils::TagLibTags::getArt(path);
         if (this->dlBuffer.empty()) {
             this->createInfoOverlay("No album art was found in the selected file.");
             return;

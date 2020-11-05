@@ -6,7 +6,7 @@
 #include "Paths.hpp"
 #include "utils/FS.hpp"
 #include "utils/Image.hpp"
-#include "utils/MP3.hpp"
+#include "utils/TagLibTags.hpp"
 #include "utils/NX.hpp"
 #include "utils/Timer.hpp"
 #include "utils/Utils.hpp"
@@ -27,7 +27,7 @@ LibraryScanner::LibraryScanner(const SyncDatabase & db, const std::string & path
 
 std::string LibraryScanner::parseAlbumArt(const std::string & path) {
     // First attempt to extract image from file
-    std::vector<unsigned char> image = Utils::MP3::getArtFromID3(path);
+    std::vector<unsigned char> image = Utils::TagLibTags::getArt(path);
     if (image.empty()) {
         return "";
     }
@@ -56,7 +56,7 @@ std::string LibraryScanner::parseAlbumArt(const std::string & path) {
 
 LibraryScanner::Status LibraryScanner::parseFileAdd(const FilePair & file) {
     // Read tags and data from file (thread-safe)
-    Metadata::Song meta = Utils::MP3::getInfoFromID3(file.path);
+    Metadata::Song meta = Utils::TagLibTags::getInfo(file.path);
     if (meta.ID == -3) {
         Log::writeError("[SCAN] [ADD] Failed to parse file: " + file.path);
         return Status::ErrUnknown;
@@ -72,7 +72,7 @@ LibraryScanner::Status LibraryScanner::parseFileAdd(const FilePair & file) {
 
 LibraryScanner::Status LibraryScanner::parseFileUpdate(const FilePair & file) {
     // Read new tags and data from file (thread-safe)
-    Metadata::Song newMeta = Utils::MP3::getInfoFromID3(file.path);
+    Metadata::Song newMeta = Utils::TagLibTags::getInfo(file.path);
     if (newMeta.ID == -3) {
         Log::writeError("[SCAN] [UPDATE] Failed to parse file: " + file.path);
         return Status::ErrUnknown;
@@ -107,7 +107,8 @@ LibraryScanner::Status LibraryScanner::processFiles() {
 
     if (Utils::Fs::fileExists(this->searchPath)) {
         for (auto & entry: std::filesystem::recursive_directory_iterator(this->searchPath)) {
-            if (entry.path().extension() == ".mp3") {
+            std::string extension = entry.path().extension();
+            if (extension == ".mp3" || extension == ".MP3" || extension == ".flac" || extension == ".FLAC") {
                 // Why is this conversion so hard?
                 auto time = entry.last_write_time();
                 auto clock = std::chrono::file_clock::to_sys(time);

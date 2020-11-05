@@ -119,6 +119,7 @@ void Audio::newSong(long rate, int channels) {
     // Create voice matching rate and channels
     this->channels = channels;
     this->voice = 0;
+    Log::writeError("[TEST] Audio::newSong rate: " + std::to_string(rate) + " channels " + std::to_string(channels));
     bool b = audrvVoiceInit(&drv, this->voice, this->channels, PcmFormat_Int16, rate);
     if (!b) {
         this->voice = -1;

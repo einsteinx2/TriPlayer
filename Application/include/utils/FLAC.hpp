@@ -1,10 +1,10 @@
-#ifndef UTILS_MP3_HPP
-#define UTILS_MP3_HPP
+#ifndef UTILS_FLAC_HPP
+#define UTILS_FLAC_HPP
 
 #include "Types.hpp"
 #include <vector>
 
-namespace Utils::MP3 {
+namespace Utils::FLAC {
     // Reads image(s) from ID3 tags using TagLib and returns a vector containing the image data 
     // The vector will be size 0 if no art is found
     // Pass path of file

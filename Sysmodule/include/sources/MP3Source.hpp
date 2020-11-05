@@ -1,5 +1,5 @@
-#ifndef SOURCES_MP3_HPP
-#define SOURCES_MP3_HPP
+#ifndef SOURCES_MP3SOURCE_HPP
+#define SOURCES_MP3SOURCE_HPP
 
 #include <array>
 #include <string>
@@ -13,7 +13,7 @@ namespace NX {
 
 // Extends Source to support MP3 files
 // This class is not thread-safe!
-class MP3 : public Source {
+class MP3Source : public Source {
     private:
         // mpg123 instance
         static mpg123_handle * mpg;
@@ -26,14 +26,14 @@ class MP3 : public Source {
 
     public:
         // Takes path to a .mp3 file
-        MP3(const std::string &);
+        MP3Source(const std::string &);
 
         size_t decode(unsigned char *, size_t);
         void seek(size_t);
         size_t tell();
 
         // Closes associated file
-        ~MP3();
+        ~MP3Source();
 
         // Initialize mpg123
         static bool initLib();

@@ -1,15 +1,15 @@
 #include <cstring>
 #include "Log.hpp"
 #include <mpg123.h>
-#include "sources/MP3.hpp"
+#include "sources/MP3Source.hpp"
 
 #ifdef USE_FILE_BUFFER
 #include "nx/File.hpp"
 #endif
 
-mpg123_handle * MP3::mpg = nullptr;
+mpg123_handle * MP3Source::mpg = nullptr;
 
-MP3::MP3(const std::string & path) : Source() {
+MP3Source::MP3Source(const std::string & path) : Source() {
     Log::writeInfo("[MP3] Opening file: " + path);
 
     // Check the library is initialized
@@ -29,7 +29,7 @@ MP3::MP3(const std::string & path) : Source() {
 #endif
 
     if (result != MPG123_OK) {
-        MP3::logErrorMsg();
+        MP3Source::logErrorMsg();
         Log::writeError("[MP3] Unable to open file");
         this->valid_ = false;
         return;
@@ -39,7 +39,7 @@ MP3::MP3(const std::string & path) : Source() {
     int encoding;
     result = mpg123_getformat(this->mpg, &this->sampleRate_, &this->channels_, &encoding);
     if (result != MPG123_OK) {
-        MP3::logErrorMsg();
+        MP3Source::logErrorMsg();
         Log::writeError("[MP3] Unable to get format from file");
         this->valid_ = false;
         return;
@@ -55,13 +55,13 @@ MP3::MP3(const std::string & path) : Source() {
     Log::writeInfo("[MP3] File opened successfully");
 }
 
-void MP3::logErrorMsg() {
-    const char * msg = mpg123_strerror(MP3::mpg);
+void MP3Source::logErrorMsg() {
+    const char * msg = mpg123_strerror(MP3Source::mpg);
     std::string str(msg);
     Log::writeError("[MP3] " + str);
 }
 
-size_t MP3::decode(unsigned char * buf, size_t sz) {
+size_t MP3Source::decode(unsigned char * buf, size_t sz) {
     if (!this->valid_) {
         return 0;
     }
@@ -77,7 +77,7 @@ size_t MP3::decode(unsigned char * buf, size_t sz) {
     return decoded;
 }
 
-void MP3::seek(size_t pos) {
+void MP3Source::seek(size_t pos) {
     if (!this->valid_) {
         return;
     }
@@ -88,7 +88,7 @@ void MP3::seek(size_t pos) {
     }
 }
 
-size_t MP3::tell() {
+size_t MP3Source::tell() {
     if (!this->valid_) {
         return 0;
     }
@@ -100,7 +100,7 @@ size_t MP3::tell() {
     return pos;
 }
 
-MP3::~MP3() {
+MP3Source::~MP3Source() {
     if (this->mpg != nullptr) {
         mpg123_close(this->mpg);
     }
@@ -111,7 +111,7 @@ MP3::~MP3() {
 #endif
 }
 
-bool MP3::initLib() {
+bool MP3Source::initLib() {
     // Initialize library
     int result = mpg123_init();
     if (result != MPG123_OK) {
@@ -120,8 +120,8 @@ bool MP3::initLib() {
     }
 
     // Create handle
-    MP3::mpg = mpg123_new(nullptr, &result);
-    if (MP3::mpg == nullptr) {
+    MP3Source::mpg = mpg123_new(nullptr, &result);
+    if (MP3Source::mpg == nullptr) {
         Log::writeError("[MP3] Failed to create instance: " + std::to_string(result));
         return false;
     }
@@ -136,38 +136,38 @@ bool MP3::initLib() {
 #endif
 
     // Enable gapless decoding
-    result = mpg123_param(MP3::mpg, MPG123_FLAGS, MPG123_QUIET | MPG123_GAPLESS, 0.0f);
+    result = mpg123_param(MP3Source::mpg, MPG123_FLAGS, MPG123_QUIET | MPG123_GAPLESS, 0.0f);
     if (result != MPG123_OK) {
-        MP3::logErrorMsg();
+        MP3Source::logErrorMsg();
         Log::writeWarning("[MP3] Unable to set quiet + gapless flags: " + std::to_string(result));
     }
 
     // Use fuzzy seeking by default
-    MP3::setAccurateSeek(false);
+    MP3Source::setAccurateSeek(false);
 
     Log::writeSuccess("[MP3] Initialized successfully");
     return true;
 }
 
 
-void MP3::freeLib() {
+void MP3Source::freeLib() {
     // Delete handle
-    if (MP3::mpg != nullptr) {
+    if (MP3Source::mpg != nullptr) {
         Log::writeSuccess("[MP3] Library tidied up!");
-        mpg123_delete(MP3::mpg);
-        MP3::mpg = nullptr;
+        mpg123_delete(MP3Source::mpg);
+        MP3Source::mpg = nullptr;
     }
 }
 
-bool MP3::setAccurateSeek(bool b) {
+bool MP3Source::setAccurateSeek(bool b) {
     // Sanity check
-    if (MP3::mpg == nullptr) {
+    if (MP3Source::mpg == nullptr) {
         return false;
     }
 
-    int result = mpg123_param(MP3::mpg, (b ? MPG123_REMOVE_FLAGS : MPG123_ADD_FLAGS), MPG123_FUZZY, 0.0f);
+    int result = mpg123_param(MP3Source::mpg, (b ? MPG123_REMOVE_FLAGS : MPG123_ADD_FLAGS), MPG123_FUZZY, 0.0f);
     if (result != MPG123_OK) {
-        MP3::logErrorMsg();
+        MP3Source::logErrorMsg();
         Log::writeWarning("[MP3] Unable to toggle fuzzy seeking");
         return false;
     }
@@ -175,18 +175,18 @@ bool MP3::setAccurateSeek(bool b) {
     return true;
 }
 
-bool MP3::setEqualizer(const std::array<float, 32> & eq) {
+bool MP3Source::setEqualizer(const std::array<float, 32> & eq) {
     // Sanity check
-    if (MP3::mpg == nullptr) {
+    if (MP3Source::mpg == nullptr) {
         return false;
     }
 
     // Iterate over array and set each eq band
     int result;
     for (size_t i = 0; i < eq.size(); i++) {
-        result = mpg123_eq(MP3::mpg, MPG123_LR, i, eq[i]);
+        result = mpg123_eq(MP3Source::mpg, MPG123_LR, i, eq[i]);
         if (result != MPG123_OK) {
-            MP3::logErrorMsg();
+            MP3Source::logErrorMsg();
             Log::writeError("[MP3] Failed to adjust equalizer band " + std::to_string(i));
             return false;
         }
