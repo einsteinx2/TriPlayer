@@ -21,7 +21,9 @@ FLACSource::FLACSource(const std::string &path) : Source() {
             this->channels_ = this->decoder->channels_; //(int)this->decoder->get_channels();
             this->totalSamples_ = this->decoder->totalSamples_; //(int)this->decoder->get_total_samples();
             this->valid_ = this->decoder->valid_;//true;
-            Log::writeError("[TEST] sampleRate: " + std::to_string(this->sampleRate_) + " channels: " + std::to_string(this->channels_) + " totalSamples: " + std::to_string(this->totalSamples_));
+			FLAC__uint64 posInBytes = 0;
+    		this->decoder->get_decode_position(&posInBytes);
+            Log::writeError("[TEST] posInBytes: " + std::to_string(posInBytes) + " sampleRate: " + std::to_string(this->sampleRate_) + " channels: " + std::to_string(this->channels_) + " totalSamples: " + std::to_string(this->totalSamples_));
             Log::writeError("[FLAC] File opened successfully");    
         } else {
             this->valid_ = false;
@@ -37,7 +39,7 @@ FLACSource::~FLACSource() {
     delete this->decoder;
 }
 
-size_t FLACSource::decode(unsigned char *buf, size_t buf_size) {
+size_t FLACSource::decode(unsigned char * buf, size_t buf_size) {
     // TEST: using max block size in bytes
     // NOTE: In stereo 16bit audio, the block size is the number of 32bit integers representing the frame,
     //       so to calculate the size in bytes, we multiply by 4
@@ -69,35 +71,6 @@ size_t FLACSource::decode(unsigned char *buf, size_t buf_size) {
     // Return the total number of bytes decoded
     Log::writeError("[TEST] FLACSource::decode bytesRead: " + std::to_string(bytesRead));
     return bytesRead;
-
-
-    // size_t i = 0;
-    // while (i + blockSize <= buf_size) {
-    //     Log::writeError("[TEST] FLACSource::decode while i + blockSize " + std::to_string(i + blockSize));
-    //     this->decoder->process_single();
-    //     Log::writeError("[TEST] decoded block size: " + std::to_string(this->decoder->get_blocksize()))
-    //     if (this->decoder->get_state() == FLAC__STREAM_DECODER_END_OF_STREAM) {
-    //         this->done_ = true;
-    //         return i;
-    //     }
-    //     i += blockSize;
-    // }
-
-
-
-    // while (i < buf_size) {
-    //     if (i + blockSize <= buf_size) {
-    //         this->decoder->process_single();
-    //         if (this->decoder->get_state() == FLAC__STREAM_DECODER_END_OF_STREAM) {
-    //             this->done_ = true;
-    //             return i;
-    //         }
-    //     } else {
-    //         return i;
-    //     }
-    //     i += blockSize;
-    // }
-    //return i;
 }
 
 void FLACSource::seek(size_t pos) {
@@ -106,20 +79,19 @@ void FLACSource::seek(size_t pos) {
 }
 
 size_t FLACSource::tell() {
-    Log::writeError("[TEST] FLACSource::tell called");
-
-    // Get the position in bytes
-    FLAC__uint64 posInBytes = 0;
-    this->decoder->get_decode_position(&posInBytes);
-
-    // Return number of samples 
-    size_t bytesPerSample = this->decoder->bitsPerSample_ / 8;
-    return posInBytes / bytesPerSample;
+	size_t currentSample = this->decoder->currentSampleNumber_;
+	Log::writeError("[TEST] FLACSource::tell called currentSample: " + std::to_string(currentSample));
+	return currentSample;
 }
 
-FLAC__StreamDecoderWriteStatus FLACDecoder::write_callback(const ::FLAC__Frame *frame, const FLAC__int32 *const *buffer) {
+FLAC__StreamDecoderWriteStatus FLACDecoder::write_callback(const ::FLAC__Frame * frame, const FLAC__int32 * const * buffer) {
     Log::writeError("[TEST] FLACSource::write_callback called");
     if (!this->decodeBuffer_) return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
+
+	// Get the current decoding sample number to use in the tell() method since there's no other way to get it
+	this->currentSampleNumber_ = frame->header.number.sample_number;
+
+	// Read the data into the decode buffer
     for (unsigned int i = 0; i < frame->header.blocksize; i++) {
         // Destructure the data into bytes in little-endian format
         // TODO: Support mono and non-16bit files
